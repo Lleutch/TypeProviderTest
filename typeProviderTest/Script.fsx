@@ -1,19 +1,23 @@
-﻿// En savoir plus sur F# sur le site http://fsharp.org. Consultez le projet 'Didacticiel F#'
-// pour obtenir une aide supplémentaire sur la programmation F#.
-
+﻿
 #r "obj/Debug/typeProviderTest.dll" // Type Provider compiled as a DLL file
 open typeProviderTest.Provided //namespace
 open typeProviderTest
 
-type test = Provided.MyParaProvider<"Ok">
 
-test.MyProperty
+(* Examples of what we can do *)
 
+// Type defined thanks to the parameter we provide <  >
+type test = Provided.ParameterProvider<"test">
 
-let testons = test("see")
+// Simple static property
+let property = test.MyProperty
 
-testons.InstanceProperty
+// Use of the constructor to instanciate
+let testInstance = test("last") 
 
-testons.InstanceMethod("Before","Ensuite")
+testInstance.InstanceProperty // val it : string = "last"
 
-testons.InstanceMethodNum2(3,10)
+testInstance.InstanceMethod("prefix","middle") // val it : string = "prefix : middle : last"
+
+testInstance.InstanceMethodNum2(5,10) // val it : List<int> = [5; 10]
+
