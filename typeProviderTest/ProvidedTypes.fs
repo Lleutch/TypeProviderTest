@@ -382,11 +382,8 @@ module internal Misc =
         trans q
 
     let getFastFuncType (args : list<E>) resultType =
-        let types =
-            [|
-                for arg in args -> arg.Type
-                yield resultType
-            |]
+        let types = [|  for arg in args -> arg.Type
+                        yield resultType |]
         let fastFuncTy = 
             match List.length args with
             | 2 -> typedefof<OptimizedClosures.FSharpFunc<_, _, _>>.MakeGenericType(types)
