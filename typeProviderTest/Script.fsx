@@ -9,53 +9,16 @@ open FSharp.Data
 open System
 
 
-let example = """ [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  } ,
-        { "currentState":4 , "localRole":"Me", "partner":"You" , "label":"goodMorning()" , "type":"receive" , "nextState":3  } ,
-        { "currentState":5 , "localRole":"Me", "partner":"Her" , "label":"helloHer()" , "type":"send" , "nextState":4  } ] """
-
-type essaye = Provided.Type1 // .RealProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  }] """>
-let sheh = essaye
+type essaye = Provided.Type1 //.RealProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  }] """>
 let v = new essaye()
-let a = v.send(new helloYou(),new You()).send(new helloHer(),new Her()).receive(new goodMorning(),new You()).finish(5)
-
-let s = "helloYou()"
-let v = s.Replace("(","").Replace(")","")
 
 
-let mapping = Map.empty<_,System.Type>.
-                Add("helloYou()",HelloYou().GetType())
+//let a = v.send(new Ask(),new You())
+//let a = v.receive(new Ask(),new You()).send(new response(),new You()).finish(1)
 
-let something = mapping.["helloYou()"]
+let a = v.send(new helloYou(),new You()).send(new helloHer(),new Her()).receive(new goodMorning(),new You()).receive(new goodAfternoon(),new Her()).finish(1)
 
-type test = Provided.SPECIAL<"essaye">
-test.``SPECIAL,Something="essaye"``
-
-let t = new test()
-t.InnerState
-t.InstanceMethod("hey")
-
-let v = new test("alright")
-v.InstanceMethod("maybe ")
-v.InnerState
-
-
-     
-    let protocol = ScribbleProtocole.Parse(example)
-    let size = protocol.Length
-
-
-
-let expression  = <@@ fun n -> n*n @@>
-
-
-let makeOneString (n:int) = 
-    "Type" + string n
-    
-let n = 6
-let types = [for i in 1..n -> makeOneString i]
-
-let s = "Type1".Remove(0,4)
-let v = System.Int32.Parse(s)+1
+//let a = v.send(new hello(),new World()).
 
 (* 
 module typeProviderTest.Provider
