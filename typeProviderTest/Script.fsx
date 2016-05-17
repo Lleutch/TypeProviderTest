@@ -12,7 +12,7 @@ open System
 type essaye = Provided.Type1
 let sheh = essaye.MyProperty
 let v = new essaye()
-let a = v.send() 
+let a = v.send(new Provided.``helloYou()``,new You()).send()
          a.send("hello").send("hi").receive("ede").finish(5)
 let b = a.send
 
