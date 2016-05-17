@@ -9,16 +9,18 @@ open FSharp.Data
 open System
 
 
-type essaye = Provided.Type1
-let sheh = essaye.MyProperty
-let v = new essaye()
-let a = v.send(new Provided.``helloYou()``,new You()).send()
-         a.send("hello").send("hi").receive("ede").finish(5)
-let b = a.send
+let example = """ [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  } ,
+        { "currentState":4 , "localRole":"Me", "partner":"You" , "label":"goodMorning()" , "type":"receive" , "nextState":3  } ,
+        { "currentState":5 , "localRole":"Me", "partner":"Her" , "label":"helloHer()" , "type":"send" , "nextState":4  } ] """
 
-type HelloYou = class
-    new () = {}
-end
+type essaye = Provided.Type1 // .RealProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  }] """>
+let sheh = essaye
+let v = new essaye()
+let a = v.send(new helloYou(),new You()).send(new helloHer(),new Her()).receive(new goodMorning(),new You()).finish(5)
+
+let s = "helloYou()"
+let v = s.Replace("(","").Replace(")","")
+
 
 let mapping = Map.empty<_,System.Type>.
                 Add("helloYou()",HelloYou().GetType())
@@ -35,6 +37,11 @@ t.InstanceMethod("hey")
 let v = new test("alright")
 v.InstanceMethod("maybe ")
 v.InnerState
+
+
+     
+    let protocol = ScribbleProtocole.Parse(example)
+    let size = protocol.Length
 
 
 

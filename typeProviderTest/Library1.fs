@@ -12,7 +12,7 @@ open System
 type End = class
     new ()  = {}
     member this.finish something =
-        printf("Okkk")
+        printf("Ok")
 end
 
 type ScribbleProtocole = FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>
@@ -25,14 +25,6 @@ type ProviderTest(config : TypeProviderConfig) as this =
     let ns = "typeProviderTest.Provided"
     let asm = Assembly.GetExecutingAssembly()
 
-    let example = """ 
-      [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  } ,
-        { "currentState":4 , "localRole":"Me", "partner":"You" , "label":"goodMorning()" , "type":"receive" , "nextState":3  } ,
-        { "currentState":5 , "localRole":"Me", "partner":"Her" , "label":"helloHer()" , "type":"send" , "nextState":4  } ] """
-
-     
-    let protocol = ScribbleProtocole.Parse(example)
-    let size = protocol.Length
 
     let findCurrentIndex current (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) = // gerer les cas
         let mutable inc = 0
@@ -51,9 +43,6 @@ type ProviderTest(config : TypeProviderConfig) as this =
         let next = findNext index fsmInstance in
         findCurrentIndex next fsmInstance
 
-    let u = findNextIndex 5 protocol
-    let v = findCurrentIndex 6 protocol
-
     let rec alreadySeen (liste:string list) (s:string) =
         match liste with
             | [] -> false
@@ -62,7 +51,6 @@ type ProviderTest(config : TypeProviderConfig) as this =
                         else
                             alreadySeen tl s
 
-   // let boo = alreadySeen ["hey";"toi";"tu";"fais";"quoi"] "u"
 
     let makeRoleTypes (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) = 
         let mutable liste = [fsmInstance.[0].LocalRole]
@@ -88,7 +76,8 @@ type ProviderTest(config : TypeProviderConfig) as this =
         let mutable mapping = Map.empty<_,System.Type>
         for event in fsmInstance do
             if not(alreadySeen liste event.Label) then
-                let t = ProvidedTypeDefinition(asm,ns,event.Label,Some typeof<obj>)
+                let name = event.Label.Replace("(","").Replace(")","") 
+                let t = ProvidedTypeDefinition(asm,ns,name,Some typeof<obj>)
                 let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
                 t.AddMember(ctor)
                 mapping <- mapping.Add(event.Label,t)
@@ -96,55 +85,91 @@ type ProviderTest(config : TypeProviderConfig) as this =
                 listeType <- t::listeType
         (mapping,listeType)
 
-    let makeStateType (n:int) = 
-        let t = ProvidedTypeDefinition(asm,ns,"Type" + string n,Some typeof<obj>)
-        let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>)
+    let makeStateType (n:int) (s:string) = 
+        let t = ProvidedTypeDefinition(asm,ns, s + string n,Some typeof<obj>)
+        let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "MakeStateType" :> obj @@>)
         t.AddMember(ctor)
         t
+    let makeStateType (n:int) = makeStateType n "Type"
 
-    let rec addProp (l:ProvidedTypeDefinition list) index (mLabel:Map<string,Type>) (mRole:Map<string,Type>) =
-        match l with
-        |[] -> ()
-        |[a] -> match protocol.[index].Type with
-                |"send" ->  let myMethod = ProvidedMethod("send",[ProvidedParameter("Label",mLabel.[protocol.[index].Label]);ProvidedParameter("Role",mRole.[protocol.[index].Partner])],
-                                                            typeof<End>,InvokeCode = fun args -> <@@ new End() @@>) in
-                            a.AddMember(myMethod)
-                |"receive" -> let myMethod = ProvidedMethod("receive",[ProvidedParameter("Label",mLabel.[protocol.[index].Label]);ProvidedParameter("Role",mRole.[protocol.[index].Partner])],
-                                                            typeof<End>,InvokeCode = fun args -> <@@ new End() @@>) in
-                              a.AddMember(myMethod)
-                | _ -> printfn "Not correct"
-                let myProp = ProvidedProperty("MyProperty", typeof<string>, IsStatic = true,
-                                                GetterCode = fun args -> <@@ "essaye Bateau" @@>)
-                a.AddMember(myProp)
-        |hd::tl -> let nextType = tl.Head
-                   match protocol.[index].Type with
-                   |"send" -> let myMethod = ProvidedMethod("send",[ProvidedParameter("Label",mLabel.[protocol.[index].Label]);ProvidedParameter("Role",mRole.[protocol.[index].Partner])],
-                                                              nextType,InvokeCode = (fun args -> let c = nextType.GetConstructors().[0]
+    let rec addProp (l:ProvidedTypeDefinition list) index (mLabel:Map<string,Type>) (mRole:Map<string,Type>) (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) =
+        if (index <> -1) then
+            match l with
+            |[] -> ()
+            |[a] -> match fsmInstance.[index].Type with
+                    |"send" ->  let myMethod = ProvidedMethod("send",[ProvidedParameter("Label",mLabel.[fsmInstance.[index].Label]);ProvidedParameter("Role",mRole.[fsmInstance.[index].Partner])],
+                                                                typeof<End>,InvokeCode = fun args -> <@@ new End() @@>) in
+                                a.AddMember(myMethod)
+                    |"receive" -> let myMethod = ProvidedMethod("receive",[ProvidedParameter("Label",mLabel.[fsmInstance.[index].Label]);ProvidedParameter("Role",mRole.[fsmInstance.[index].Partner])],
+                                                                typeof<End>,InvokeCode = fun args -> <@@ new End() @@>) in
+                                  a.AddMember(myMethod)
+                    | _ -> printfn "Not correct"
+                    let myProp = ProvidedProperty("MyProperty", typeof<string>, IsStatic = true,
+                                                    GetterCode = fun args -> <@@ "essaye Bateau" @@>)
+                    a.AddMember(myProp)
+            |hd::tl -> let nextType = tl.Head
+                       match fsmInstance.[index].Type with
+                       |"send" -> let myMethod = ProvidedMethod("send",[ProvidedParameter("Label",mLabel.[fsmInstance.[index].Label]);ProvidedParameter("Role",mRole.[fsmInstance.[index].Partner])],
+                                                                  nextType,InvokeCode = (fun args -> let c = nextType.GetConstructors().[0]
+                                                                                                     Expr.NewObject(c, [])))
+                                  hd.AddMember(myMethod)
+                       |"receive" -> let myMethod = ProvidedMethod("receive",[ProvidedParameter("Label",mLabel.[fsmInstance.[index].Label]);ProvidedParameter("Role",mRole.[fsmInstance.[index].Partner])],
+                                                                    nextType, InvokeCode = (fun args -> let c = nextType.GetConstructors().[0]
+                                                                                                        Expr.NewObject(c, [])))
+                                     hd.AddMember(myMethod)
+                       | _ -> printfn "Not correct"
+                       let myProp = ProvidedProperty("MyProperty", typeof<string>, IsStatic = true,
+                                                    GetterCode = fun args -> <@@ "Test" @@>)
+                       hd.AddMember(myProp)
+                       let nextIndex = findNextIndex fsmInstance.[index].CurrentState fsmInstance
+                       addProp tl nextIndex mLabel mRole fsmInstance
+
+   
+    let fsm = """ [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  } ,
+                    { "currentState":4 , "localRole":"Me", "partner":"You" , "label":"goodMorning()" , "type":"receive" , "nextState":3  } ,
+                    { "currentState":3 , "localRole":"Me", "partner":"Her" , "label":"goodAfternoon()" , "type":"receive" , "nextState":2  } ,
+                    { "currentState":5 , "localRole":"Me", "partner":"Her" , "label":"helloHer()" , "type":"send" , "nextState":4  } ] """
+   (* let createType (name:string) (parameters:obj[]) =
+        fsm <- parameters.[0]  :?> string  (* this is used if we want to assure that the type of the parameter
+        we are grabbing is a string : DOWNCASTING . Which also means type verification at runtime and not compile time *)
+        let protocol = ScribbleProtocole.Parse(fsm)
+        let n = protocol.Length
+        let listTypes = [for i in 1..n -> makeStateType i]
+        let t = ProvidedTypeDefinition(asm,ns,name,Some typeof<obj>)
+        let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "Weird stuff" @@>  )
+        t.AddMember(ctor)
+        let myMethod = ProvidedMethod("instanciate",[], listTypes.Head,InvokeCode = (fun args -> let c = listTypes.Head.GetConstructors().[0]
                                                                                                  Expr.NewObject(c, [])))
-                              hd.AddMember(myMethod)
-                   |"receive" -> let myMethod = ProvidedMethod("receive",[ProvidedParameter("Label",mLabel.[protocol.[index].Label]);ProvidedParameter("Role",mRole.[protocol.[index].Partner])],
-                                                                nextType, InvokeCode = (fun args -> let c = nextType.GetConstructors().[0]
-                                                                                                    Expr.NewObject(c, [])))
-                                 hd.AddMember(myMethod)
-                   | _ -> printfn "Not correct"
-                   let myProp = ProvidedProperty("MyProperty", typeof<string>, IsStatic = true,
-                                                GetterCode = fun args -> <@@ "Test" @@>)
-                   hd.AddMember(myProp)
-                   let nextIndex = findNextIndex protocol.[index].CurrentState protocol
-                   addProp tl nextIndex mLabel mRole
+        t.AddMember(myMethod)
+        t.AddMembers(listTypes)
+        let tupleLabel = makeLabelTypes protocol
+        let tupleRole = makeRoleTypes protocol
+        let list1 = snd(tupleLabel)
+        let list2 = snd(tupleRole)
+        addProp listTypes (findCurrentIndex 1 protocol) (fst tupleLabel) (fst tupleRole) protocol
+        let tmpList = List.append list1 list2
+        let totalList = List.append listTypes tmpList
+        *)
 
-    let createTypes () =
-        let n = size
+    let createTypes() =
+        let protocol = ScribbleProtocole.Parse(fsm)
+        let n = protocol.Length
         let types = [for i in 1..n -> makeStateType i]
         let tupleLabel = makeLabelTypes protocol
         let tupleRole = makeRoleTypes protocol
         let list1 = snd(tupleLabel)
         let list2 = snd(tupleRole)
-        addProp types (findCurrentIndex 1 protocol) (fst tupleLabel) (fst tupleRole)
+        addProp types (findCurrentIndex 1 protocol) (fst tupleLabel) (fst tupleRole) protocol
         let tmpList = List.append list1 list2
-        List.append types tmpList
+        let totalList = List.append types tmpList
+        totalList
+        
 
+    let providedType = ProvidedTypeDefinition(asm,ns,"RealProvider",Some typeof<obj>)
+    let parameters = [ProvidedStaticParameter("Something",typeof<string>)]
     do
+        providedType.DefineStaticParameters(parameters,createType)
+        //let c = totalList <- providedType::totalList // c = useless
         this.AddNamespace(ns, createTypes())
 [<assembly:TypeProviderAssembly>]
     do()
