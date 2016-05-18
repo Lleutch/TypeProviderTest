@@ -124,18 +124,6 @@ type ProviderTest(config : TypeProviderConfig) as this =
                        let nextIndex = findNextIndex fsmInstance.[index].CurrentState fsmInstance
                        addProp tl nextIndex mLabel mRole fsmInstance  
 
-    let myChannel = ProvidedTypeDefinition(asm,ns,"Channel",Some typeof<obj>)
- (*   let aMethod = ProvidedMethod("erane",[],typeof<int>,
-                                    InvokeCode = (fun args -> <@@ "Maiq d Babak" @@>))
-    let aCtor = ProvidedConstructor([],InvokeCode = (fun args -> <@@ "Roles" @@>))
-    let c = myType.AddMember(aMethod)
-    let d = myType.AddMember(aCtor) *)
-   // let mutable totalList = []
-    //let mutable protocol = Array.empty
-    //let mutable list1 = []
-    //let mutable list2 = []
-   // let mutable tupleRole = [(_,_)]
-    let mutable boolean = false
     let createType (name:string) (parameters:obj[]) =
         let fsm = parameters.[0]  :?> string  (* this is used if we want to assure that the type of the parameter
 //we are grabbing is a string : DOWNCASTING . Which also means type verification at runtime and not compile time *)
@@ -147,20 +135,16 @@ type ProviderTest(config : TypeProviderConfig) as this =
         let list1 = snd(tupleLabel)
         let list2 = snd(tupleRole)
         addProp listTypes (findCurrentIndex 1 protocol) (fst tupleLabel) (fst tupleRole) protocol
-        if not boolean then
-            let aCtor = ProvidedConstructor([],InvokeCode = (fun args -> <@@ "Instanciation of the Channel" @@>))
-            let myMethod = ProvidedMethod("instanciate",[], listTypes.Head,InvokeCode = (fun args -> let c = listTypes.Head.GetConstructors().[0]
-                                                                                                     Expr.NewObject(c, [])))
-            myChannel.AddMember(aCtor)
-            myChannel.AddMember(myMethod)
-            myChannel.AddMembers(list2)
-            myChannel.AddMembers(list1)
-            myChannel.AddMembers(listTypes)
-            boolean <- not boolean
         let stuff = list2.ToString()
         let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ stuff @@>  )
         let t = ProvidedTypeDefinition(asm,ns,name,Some typeof<obj>)
+        let myMethod = ProvidedMethod("instanciate",[], listTypes.Head,InvokeCode = (fun args -> let c = listTypes.Head.GetConstructors().[0]
+                                                                                                 Expr.NewObject(c, [])))  
         t.AddMember(ctor)
+        t.AddMember(myMethod)
+        t.AddMembers(list2)
+        t.AddMembers(list1)
+        t.AddMembers(listTypes)
         t
       
  (*   let mutable list1 = []
@@ -204,7 +188,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
         providedType.DefineStaticParameters(parameters,createType)
         //let d = myType.AddMembers(list2)
         //totalList <- providedType::totalList // c = useless
-        this.AddNamespace(ns, [providedType;myChannel] )
+        this.AddNamespace(ns, [providedType] )
 [<assembly:TypeProviderAssembly>]
     do()
 
