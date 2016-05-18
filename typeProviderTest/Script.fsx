@@ -9,21 +9,32 @@ open FSharp.Data
 open System
 
 
-type essaye = Provided.RealProvider<  """ 
-  [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  }] """>
-let v = new essaye()
-type c = Provided.Channel
-let b = new c()
-let a = v.instanciate().send(new essaye.helloYou(), new essaye.You())
+type e = Provided.RealProvider<""" 
+  [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  } ,
+    { "currentState":4 , "localRole":"Me", "partner":"You" , "label":"goodMorning()" , "type":"receive" , "nextState":3  } ,
+    { "currentState":3 , "localRole":"Me", "partner":"Her" , "label":"goodAfternoon()" , "type":"receive" , "nextState":2  } ,
+    { "currentState":5 , "localRole":"Me", "partner":"Her" , "label":"helloHer()" , "type":"send" , "nextState":4  } ] """ >
+let v = new e()
+let a = v.instanciate().send(new e.helloYou() , e.You.instance)
 //let a = v.send(new Ask(),new You())
 //let a = v.receive(new Ask(),new You()).send(new response(),new You()).finish(1)
 
-let a = v.send( .send(new helloYou(),new You()).send(new helloHer(),new Her()).receive(new goodMorning(),new You()).receive(new goodAfternoon(),new Her()).finish(1)
+(****  Exemple for showing singleton ****)
+type test = 
+    new () = {}
 
-//let a = v.send(new hello(),new World()).
 
- let fsm = 
+let o = new test()
+let p = new test()
+let first = (o=p)
 
+
+let g = e.You.instance
+let h = e.You.instance
+let second = (g=h)
+let m = new e.You()
+let n = new e.You()
+let third = (m=n)
 
 (* 
 module typeProviderTest.Provider

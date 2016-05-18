@@ -26,7 +26,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
     let asm = Assembly.GetExecutingAssembly()
 
 
-    let findCurrentIndex current (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) = // gerer les cas
+    let findCurrentIndex current (fsmInstance:ScribbleProtocole.Root []) = // gerer les cas
         let mutable inc = 0
         let mutable index = -1 
         for event in fsmInstance do
@@ -35,10 +35,10 @@ type ProviderTest(config : TypeProviderConfig) as this =
                 | _ -> inc <- inc + 1
         index
 
-    let findNext index (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) =
+    let findNext index (fsmInstance:ScribbleProtocole.Root []) =
         (fsmInstance.[index].NextState)
 
-    let findNextIndex currentState (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) =
+    let findNextIndex currentState (fsmInstance:ScribbleProtocole.Root []) =
         let index = findCurrentIndex currentState fsmInstance in
         let next = findNext index fsmInstance in
         findCurrentIndex next fsmInstance
@@ -52,25 +52,31 @@ type ProviderTest(config : TypeProviderConfig) as this =
                             alreadySeen tl s
 
 
-    let makeRoleTypes (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) = 
+    let makeRoleTypes (fsmInstance:ScribbleProtocole.Root []) = 
         let mutable liste = [fsmInstance.[0].LocalRole]
         let mutable listeType = []
         let t =  ProvidedTypeDefinition(fsmInstance.[0].LocalRole,Some typeof<obj>)
-        let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
+        let ctor = ProvidedConstructor([ProvidedParameter("Voir",typeof<int>)], InvokeCode = fun args -> <@@ "le Role est unique" :> obj @@>) // add argument later
         t.AddMember(ctor)
+        let myProp = ProvidedProperty("instance", t, IsStatic = true,
+                                                GetterCode = (fun args -> Expr.NewObject(ctor,[]) ))
+        t.AddMember(myProp)
         listeType <- t::listeType
         let mutable mapping = Map.empty<_,System.Type>.Add(fsmInstance.[0].LocalRole,t)
         for event in fsmInstance do
             if not(alreadySeen liste event.Partner) then
                 let t = ProvidedTypeDefinition(event.Partner,Some typeof<obj>)
-                let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
+                let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "le Role est unique" :> obj @@>) // add argument later
                 t.AddMember(ctor)
+                let myProp = ProvidedProperty("instance", t, IsStatic = true,
+                                                    GetterCode = (fun args -> Expr.NewObject(ctor,[]) ))
+                t.AddMember(myProp)
                 mapping <- mapping.Add(event.Partner,t)
                 liste <- event.Partner::liste
                 listeType <- t::listeType
         (mapping,listeType)
 
-    let makeLabelTypes (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) = 
+    let makeLabelTypes (fsmInstance:ScribbleProtocole.Root []) = 
         let mutable liste = []
         let mutable listeType = []
         let mutable mapping = Map.empty<_,System.Type>
@@ -92,7 +98,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
         t
     let makeStateType (n:int) = makeStateType n "State"
     
-    let rec addProp (l:ProvidedTypeDefinition list) index (mLabel:Map<string,Type>) (mRole:Map<string,Type>) (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) =
+    let rec addProp (l:ProvidedTypeDefinition list) index (mLabel:Map<string,Type>) (mRole:Map<string,Type>) (fsmInstance:ScribbleProtocole.Root []) =
         if (index <> -1) then
             match l with
             |[] -> ()
