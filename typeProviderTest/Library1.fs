@@ -78,7 +78,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
             if not(alreadySeen liste event.Label) then
                 let name = event.Label.Replace("(","").Replace(")","") 
                 let t = ProvidedTypeDefinition(name,Some typeof<obj>)
-                let ctor = ProvidedConstructor([ProvidedParameter("Int",typeof<int>)], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
+                let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
                 t.AddMember(ctor)
                 mapping <- mapping.Add(event.Label,t)
                 liste <- event.Label::liste
@@ -90,7 +90,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
         let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "MakeStateType" :> obj @@>)
         t.AddMember(ctor)
         t
-    let makeStateType (n:int) = makeStateType n "Type"
+    let makeStateType (n:int) = makeStateType n "State"
     
     let rec addProp (l:ProvidedTypeDefinition list) index (mLabel:Map<string,Type>) (mRole:Map<string,Type>) (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) =
         if (index <> -1) then
@@ -122,17 +122,9 @@ type ProviderTest(config : TypeProviderConfig) as this =
                                                     GetterCode = fun args -> <@@ "Test" @@>)
                        hd.AddMember(myProp)
                        let nextIndex = findNextIndex fsmInstance.[index].CurrentState fsmInstance
-                       addProp tl nextIndex mLabel mRole fsmInstance
+                       addProp tl nextIndex mLabel mRole fsmInstance  
 
-    let fsm = """ 
-              [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  } ,
-                { "currentState":4 , "localRole":"Me", "partner":"You" , "label":"goodMorning()" , "type":"receive" , "nextState":3  } ,
-                { "currentState":3 , "localRole":"Me", "partner":"Her" , "label":"goodAfternoon()" , "type":"receive" , "nextState":2  } ,
-                { "currentState":5 , "localRole":"Me", "partner":"Her" , "label":"helloHer()" , "type":"send" , "nextState":4  } ] """
-
-    
-
-    let myType = ProvidedTypeDefinition(asm,ns,"ARIEUL",Some typeof<obj>)
+    let myChannel = ProvidedTypeDefinition(asm,ns,"Channel",Some typeof<obj>)
  (*   let aMethod = ProvidedMethod("erane",[],typeof<int>,
                                     InvokeCode = (fun args -> <@@ "Maiq d Babak" @@>))
     let aCtor = ProvidedConstructor([],InvokeCode = (fun args -> <@@ "Roles" @@>))
@@ -156,14 +148,14 @@ type ProviderTest(config : TypeProviderConfig) as this =
         let list2 = snd(tupleRole)
         addProp listTypes (findCurrentIndex 1 protocol) (fst tupleLabel) (fst tupleRole) protocol
         if not boolean then
-            let aCtor = ProvidedConstructor([],InvokeCode = (fun args -> <@@ "On met rien ici pour le moment " @@>))
+            let aCtor = ProvidedConstructor([],InvokeCode = (fun args -> <@@ "Instanciation of the Channel" @@>))
             let myMethod = ProvidedMethod("instanciate",[], listTypes.Head,InvokeCode = (fun args -> let c = listTypes.Head.GetConstructors().[0]
                                                                                                      Expr.NewObject(c, [])))
-            myType.AddMember(aCtor)
-            myType.AddMember(myMethod)
-            myType.AddMembers(list2)
-            myType.AddMembers(list1)
-            myType.AddMembers(listTypes)
+            myChannel.AddMember(aCtor)
+            myChannel.AddMember(myMethod)
+            myChannel.AddMembers(list2)
+            myChannel.AddMembers(list1)
+            myChannel.AddMembers(listTypes)
             boolean <- not boolean
         let stuff = list2.ToString()
         let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ stuff @@>  )
@@ -212,7 +204,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
         providedType.DefineStaticParameters(parameters,createType)
         //let d = myType.AddMembers(list2)
         //totalList <- providedType::totalList // c = useless
-        this.AddNamespace(ns, [providedType;myType] )
+        this.AddNamespace(ns, [providedType;myChannel] )
 [<assembly:TypeProviderAssembly>]
     do()
 

@@ -11,15 +11,22 @@ open System
 
 type essaye = Provided.RealProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  }] """>
 let v = new essaye()
-type arl = Provided.ARIEUL
-let b = new arl()
-let a = b.instanciate().send()
+type c = Provided.Channel
+let b = new c()
+let a = b.instanciate().send(new c.helloYou(),new c.You()).finish(5)
 //let a = v.send(new Ask(),new You())
 //let a = v.receive(new Ask(),new You()).send(new response(),new You()).finish(1)
 
 let a = v.send( .send(new helloYou(),new You()).send(new helloHer(),new Her()).receive(new goodMorning(),new You()).receive(new goodAfternoon(),new Her()).finish(1)
 
 //let a = v.send(new hello(),new World()).
+
+ let fsm = """ 
+              [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  } ,
+                { "currentState":4 , "localRole":"Me", "partner":"You" , "label":"goodMorning()" , "type":"receive" , "nextState":3  } ,
+                { "currentState":3 , "localRole":"Me", "partner":"Her" , "label":"goodAfternoon()" , "type":"receive" , "nextState":2  } ,
+                { "currentState":5 , "localRole":"Me", "partner":"Her" , "label":"helloHer()" , "type":"send" , "nextState":4  } ] """
+
 
 (* 
 module typeProviderTest.Provider
