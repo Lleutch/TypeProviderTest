@@ -55,14 +55,14 @@ type ProviderTest(config : TypeProviderConfig) as this =
     let makeRoleTypes (fsmInstance:FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>.Root []) = 
         let mutable liste = [fsmInstance.[0].LocalRole]
         let mutable listeType = []
-        let t =  ProvidedTypeDefinition(asm,ns,fsmInstance.[0].LocalRole,Some typeof<obj>)
+        let t =  ProvidedTypeDefinition(fsmInstance.[0].LocalRole,Some typeof<obj>)
         let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
         t.AddMember(ctor)
         listeType <- t::listeType
         let mutable mapping = Map.empty<_,System.Type>.Add(fsmInstance.[0].LocalRole,t)
         for event in fsmInstance do
             if not(alreadySeen liste event.Partner) then
-                let t = ProvidedTypeDefinition(asm,ns,event.Partner,Some typeof<obj>)
+                let t = ProvidedTypeDefinition(event.Partner,Some typeof<obj>)
                 let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
                 t.AddMember(ctor)
                 mapping <- mapping.Add(event.Partner,t)
@@ -77,7 +77,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
         for event in fsmInstance do
             if not(alreadySeen liste event.Label) then
                 let name = event.Label.Replace("(","").Replace(")","") 
-                let t = ProvidedTypeDefinition(asm,ns,name,Some typeof<obj>)
+                let t = ProvidedTypeDefinition(name,Some typeof<obj>)
                 let ctor = ProvidedConstructor([ProvidedParameter("Int",typeof<int>)], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
                 t.AddMember(ctor)
                 mapping <- mapping.Add(event.Label,t)
@@ -86,7 +86,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
         (mapping,listeType)
 
     let makeStateType (n:int) (s:string) = 
-        let t = ProvidedTypeDefinition(asm,ns, s + string n,Some typeof<obj>)
+        let t = ProvidedTypeDefinition(s + string n,Some typeof<obj>)
         let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "MakeStateType" :> obj @@>)
         t.AddMember(ctor)
         t
@@ -130,34 +130,65 @@ type ProviderTest(config : TypeProviderConfig) as this =
                 { "currentState":3 , "localRole":"Me", "partner":"Her" , "label":"goodAfternoon()" , "type":"receive" , "nextState":2  } ,
                 { "currentState":5 , "localRole":"Me", "partner":"Her" , "label":"helloHer()" , "type":"send" , "nextState":4  } ] """
 
-(*    let mutable totalList = []
+    
+
+    let myType = ProvidedTypeDefinition(asm,ns,"ARIEUL",Some typeof<obj>)
+ (*   let aMethod = ProvidedMethod("erane",[],typeof<int>,
+                                    InvokeCode = (fun args -> <@@ "Maiq d Babak" @@>))
+    let aCtor = ProvidedConstructor([],InvokeCode = (fun args -> <@@ "Roles" @@>))
+    let c = myType.AddMember(aMethod)
+    let d = myType.AddMember(aCtor) *)
+   // let mutable totalList = []
+    //let mutable protocol = Array.empty
+    //let mutable list1 = []
+    //let mutable list2 = []
+   // let mutable tupleRole = [(_,_)]
+    let mutable boolean = false
     let createType (name:string) (parameters:obj[]) =
         let fsm = parameters.[0]  :?> string  (* this is used if we want to assure that the type of the parameter
-        we are grabbing is a string : DOWNCASTING . Which also means type verification at runtime and not compile time *)
+//we are grabbing is a string : DOWNCASTING . Which also means type verification at runtime and not compile time *)
         let protocol = ScribbleProtocole.Parse(fsm)
         let n = protocol.Length
         let listTypes = [for i in 1..n -> makeStateType i]
-        let t = ProvidedTypeDefinition(asm,ns,name,Some typeof<obj>)
-        let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ fsm @@>  )
-        t.AddMember(ctor)
-        let myMethod = ProvidedMethod("instanciate",[], listTypes.Head,InvokeCode = (fun args -> let c = listTypes.Head.GetConstructors().[0]
-                                                                                                 Expr.NewObject(c, [])))
-        t.AddMember(myMethod)
-        t.AddMembers(listTypes)
         let tupleLabel = makeLabelTypes protocol
         let tupleRole = makeRoleTypes protocol
         let list1 = snd(tupleLabel)
         let list2 = snd(tupleRole)
         addProp listTypes (findCurrentIndex 1 protocol) (fst tupleLabel) (fst tupleRole) protocol
-        let tmpList = List.append list1 list2
-        let totalList = List.append listTypes tmpList
+        if not boolean then
+            let aCtor = ProvidedConstructor([],InvokeCode = (fun args -> <@@ "On met rien ici pour le moment " @@>))
+            let myMethod = ProvidedMethod("instanciate",[], listTypes.Head,InvokeCode = (fun args -> let c = listTypes.Head.GetConstructors().[0]
+                                                                                                     Expr.NewObject(c, [])))
+            myType.AddMember(aCtor)
+            myType.AddMember(myMethod)
+            myType.AddMembers(list2)
+            myType.AddMembers(list1)
+            myType.AddMembers(listTypes)
+            boolean <- not boolean
+        let stuff = list2.ToString()
+        let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ stuff @@>  )
+        let t = ProvidedTypeDefinition(asm,ns,name,Some typeof<obj>)
+        t.AddMember(ctor)
         t
+      
+ (*   let mutable list1 = []
+    let mutable list2 = []
+    let createSpecial (name:string) (parameters:obj[]) =
+        let fsm = parameters.[0]  :?> string  (* this is used if we want to assure that the type of the parameter
+        we are grabbing is a string : DOWNCASTING . Which also means type verification at runtime and not compile time *)
+        protocol <- ScribbleProtocole.Parse(fsm)
+        let tupleLabel = makeLabelTypes protocol
+        let tupleRole = makeRoleTypes protocol
+        list1 <- snd(tupleLabel)
+        list2 <- snd(tupleRole)
+        createType name parameters protocol.Length (fst tupleLabel) (fst tupleRole) protocol*)
 
-*)
-    let createTypes() =
+
+            
+  (*  let createTypes() =
         let protocol = ScribbleProtocole.Parse(fsm)
         let n = protocol.Length
-        let types = [for i in 1..n -> makeStateType i]
+        let types = [for i in 2..n -> makeStateType i]
         let tupleLabel = makeLabelTypes protocol
         let tupleRole = makeRoleTypes protocol
         let list1 = snd(tupleLabel)
@@ -165,15 +196,23 @@ type ProviderTest(config : TypeProviderConfig) as this =
         addProp types (findCurrentIndex 1 protocol) (fst tupleLabel) (fst tupleRole) protocol
         let tmpList = List.append list1 list2
         let totalList = List.append types tmpList
-        totalList
+        let t = ProvidedTypeDefinition(asm,ns,"First",Some typeof<obj>)
+        let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "heeeey" @@>  )
+        t.AddMember(ctor)
+        let myMethod = ProvidedMethod("instanciate",[], types.Tail.Head,InvokeCode = (fun args -> let c = types.Tail.Head.GetConstructors().[0]
+                                                                                                  Expr.NewObject(c, [])))
+        t.AddMember(myMethod)
+        t.AddMembers(totalList)
+        [t]*)
         
 
-    //let providedType = ProvidedTypeDefinition(asm,ns,"RealProvider",Some typeof<obj>)
-    //let parameters = [ProvidedStaticParameter("Something",typeof<string>)]
+    let providedType = ProvidedTypeDefinition(asm,ns,"RealProvider",Some typeof<obj>)
+    let parameters = [ProvidedStaticParameter("Something",typeof<string>)]
     do
-       // providedType.DefineStaticParameters(parameters,createType)
-        //let c = totalList <- providedType::totalList // c = useless
-        this.AddNamespace(ns, createTypes())
+        providedType.DefineStaticParameters(parameters,createType)
+        //let d = myType.AddMembers(list2)
+        //totalList <- providedType::totalList // c = useless
+        this.AddNamespace(ns, [providedType;myType] )
 [<assembly:TypeProviderAssembly>]
     do()
 

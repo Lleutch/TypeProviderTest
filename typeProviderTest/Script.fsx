@@ -9,14 +9,15 @@ open FSharp.Data
 open System
 
 
-type essaye = Provided.Type1 //.RealProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  }] """>
+type essaye = Provided.RealProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  }] """>
 let v = new essaye()
-
-
+type arl = Provided.ARIEUL
+let b = new arl()
+let a = b.instanciate().send()
 //let a = v.send(new Ask(),new You())
 //let a = v.receive(new Ask(),new You()).send(new response(),new You()).finish(1)
 
-let a = v.send(new helloYou(),new You()).send(new helloHer(),new Her()).receive(new goodMorning(),new You()).receive(new goodAfternoon(),new Her()).finish(1)
+let a = v.send( .send(new helloYou(),new You()).send(new helloHer(),new Her()).receive(new goodMorning(),new You()).receive(new goodAfternoon(),new Her()).finish(1)
 
 //let a = v.send(new hello(),new World()).
 
