@@ -11,18 +11,36 @@ open System
 type e = Provided.RealProvider<""" 
   [ { "currentState":1 , "localRole":"World", "partner":"Me" , "label":"b" , "type":"send" , "nextState":4  } ,
     { "currentState":1 , "localRole":"World", "partner":"Her" , "label":"c", "type":"send" , "nextState": 3 } ,
-    { "currentState":4 , "localRole":"World", "partner":"Her" , "label":"d", "type":"send" , "nextState":2  } ,
+    { "currentState":7 , "localRole":"World", "partner":"Her" , "label":"d", "type":"send" , "nextState":2  } ,
     { "currentState":3 , "localRole":"World", "partner":"Me" , "label":"a", "type":"send" , "nextState":2 } ] """ >
 let v = new e()
-let d = e.
-let a =v.instanciate().send(new e.b(),e.Her.instance)
-let someMath = 
+
+let c = match v with
+            |Her -> "rien"
+//let a =v.instanciate().send(new e.c(),e.Her.instance).send
 //let a = v.send(new Ask(),new You())
 //let a = v.receive(new Ask(),new You()).send(new response(),new You()).finish(1)
 
 (****  Exemple for showing singleton ****)
 type test = 
-    new () = {}
+    |Essaye of int
+    |Toz of float
+
+let f x = match x with
+            |Essaye i -> printfn "hey %i" i
+            |Toz i -> printfn "hola %f" i
+
+let c = f 5
+type Color =
+   | Red = 0
+   | Green = 1
+   | Blue = 2
+
+type color with
+   | Noir = 5
+
+s.GetType()
+
 
 
 let o = new test()

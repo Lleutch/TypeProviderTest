@@ -9,12 +9,6 @@ open System.Reflection // necessary if we want to use the f# assembly
 open Microsoft.FSharp.Data
 open System
 
-type End = class
-    new ()  = {}
-    member this.finish something =
-        printf("Ok")
-end
-
 type ScribbleProtocole = FSharp.Data.JsonProvider<""" [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"hello()" , "type":"send" , "nextState":2  } ] """>
 
 // This defines the type provider. When this will be compiled as a DLL file, we can add this type, as a reference
@@ -142,16 +136,16 @@ type ProviderTest(config : TypeProviderConfig) as this =
                     goingThrough methodName providedList aType tl mLabel mRole fsmInstance
 
 
-    let rec addProperty (providedListStatic:ProvidedTypeDefinition list) (providedList:ProvidedTypeDefinition list) (currentState:int) (mLabel:Map<string,Type>) (mRole:Map<string,Type>) (fsmInstance:ScribbleProtocole.Root []) =
-        let indexOfState = findCurrentIndex currentState fsmInstance
+    let rec addProperty (providedListStatic:ProvidedTypeDefinition list) (providedList:ProvidedTypeDefinition list) (stateList: int list) (mLabel:Map<string,Type>) (mRole:Map<string,Type>) (fsmInstance:ScribbleProtocole.Root []) =
+        let indexOfState = findCurrentIndex stateList.Head fsmInstance
         //if (indexOfState <> -1) then // J'en ai plus besoin géré par method goingThrough
+        let indexList = findSameCurrent stateList.Head fsmInstance 
+        let mutable methodName = "finish"
+        if indexOfState <> -1 then
+            methodName <- fsmInstance.[indexOfState].Type
         match providedList with
             |[] -> ()
-            |[aType] -> let indexList = findSameCurrent currentState fsmInstance 
-                        let mutable methodName = "finish"
-                        if indexOfState <> -1 then
-                            methodName <- fsmInstance.[indexOfState].Type
-                        match methodName with
+            |[aType] -> match methodName with
                             |"send" -> goingThrough methodName providedListStatic aType indexList mLabel mRole fsmInstance
                             |"receive" -> goingThrough methodName providedListStatic aType indexList mLabel mRole fsmInstance
                             |"finish" -> goingThrough methodName providedListStatic aType indexList mLabel mRole fsmInstance
@@ -159,11 +153,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
                         let myProp = ProvidedProperty("MyProperty", typeof<string>, IsStatic = true,
                                                         GetterCode = fun args -> <@@ "essaye Bateau" @@>)
                         aType.AddMember(myProp)
-            |hd::tl ->  let indexList = findSameCurrent currentState fsmInstance 
-                        let mutable methodName = "finish"
-                        if indexOfState <> -1 then
-                            methodName <- fsmInstance.[indexOfState].Type
-                        match methodName with
+            |hd::tl ->  match methodName with
                             |"send" -> goingThrough methodName providedListStatic hd indexList mLabel mRole fsmInstance
                             |"receive" -> goingThrough methodName providedListStatic hd indexList mLabel mRole fsmInstance
                             |"finish" -> goingThrough methodName providedListStatic hd indexList mLabel mRole fsmInstance
@@ -171,7 +161,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
                         let myProp = ProvidedProperty("MyProperty", typeof<string>, IsStatic = true,
                                                        GetterCode = fun args -> <@@ "Test" @@>)
                         hd.AddMember(myProp)
-                        addProperty providedListStatic tl (currentState + 1) mLabel mRole fsmInstance      
+                        addProperty providedListStatic tl (stateList.Tail) mLabel mRole fsmInstance      
 
     let contains (aSet:Set<'a>) x = Set.exists ((=) x) aSet
 
@@ -182,20 +172,22 @@ type ProviderTest(config : TypeProviderConfig) as this =
             if (not(contains setSeen event.CurrentState) || not(contains setSeen event.NextState)) then
                 setSeen <- setSeen.Add(event.CurrentState)
                 setSeen <- setSeen.Add(event.NextState)
-        setSeen.Count
+        (setSeen.Count,setSeen)
+
 
     let createType (name:string) (parameters:obj[]) =
         let fsm = parameters.[0]  :?> string  (* this is used if we want to assure that the type of the parameter
 //we are grabbing is a string : DOWNCASTING . Which also means type verification at runtime and not compile time *)
         let protocol = ScribbleProtocole.Parse(fsm)
-        let n = numberOfState protocol
-        let listTypes = [for i in 1..n -> makeStateType i]
+        let couple = numberOfState protocol
+        let n = fst(couple)
+        let stateSet = snd(couple)
+        let listTypes = List.map (fun x -> makeStateType x ) (Set.toList stateSet)
         let tupleLabel = makeLabelTypes protocol
         let tupleRole = makeRoleTypes protocol
         let list1 = snd(tupleLabel)
         let list2 = snd(tupleRole)
-        let currentState = 1
-        addProperty listTypes listTypes currentState (fst tupleLabel) (fst tupleRole) protocol
+        addProperty listTypes listTypes (Set.toList stateSet) (fst tupleLabel) (fst tupleRole) protocol
         let stuff = list2.ToString()
         let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "hey" + string n @@>  )
         let t = ProvidedTypeDefinition(asm,ns,name,Some typeof<obj>)
