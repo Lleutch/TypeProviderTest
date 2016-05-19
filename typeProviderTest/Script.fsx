@@ -3,19 +3,20 @@
 open typeProviderTest.Provided //namespace
 open typeProviderTest
 
-//#r "../packages/FSharp.Data.2.3.0/lib/net40/FSharp.Data.dll"
 
 open FSharp.Data
 open System
 
 
 type e = Provided.RealProvider<""" 
-  [ { "currentState":1 , "localRole":"Me", "partner":"You" , "label":"helloYou()" , "type":"send" , "nextState":5  } ,
-    { "currentState":4 , "localRole":"Me", "partner":"You" , "label":"goodMorning()" , "type":"receive" , "nextState":3  } ,
-    { "currentState":3 , "localRole":"Me", "partner":"Her" , "label":"goodAfternoon()" , "type":"receive" , "nextState":2  } ,
-    { "currentState":5 , "localRole":"Me", "partner":"Her" , "label":"helloHer()" , "type":"send" , "nextState":4  } ] """ >
+  [ { "currentState":1 , "localRole":"World", "partner":"Me" , "label":"b" , "type":"send" , "nextState":4  } ,
+    { "currentState":1 , "localRole":"World", "partner":"Her" , "label":"c", "type":"send" , "nextState": 3 } ,
+    { "currentState":4 , "localRole":"World", "partner":"Her" , "label":"d", "type":"send" , "nextState":2  } ,
+    { "currentState":3 , "localRole":"World", "partner":"Me" , "label":"a", "type":"send" , "nextState":2 } ] """ >
 let v = new e()
-let a = v.instanciate().send(new e.helloYou() , e.You.instance)
+let d = e.
+let a =v.instanciate().send(new e.b(),e.Her.instance)
+let someMath = 
 //let a = v.send(new Ask(),new You())
 //let a = v.receive(new Ask(),new You()).send(new response(),new You()).finish(1)
 
@@ -37,6 +38,14 @@ let n = new e.You()
 let third = (m=n)
 
 (* 
+
+""" 
+  [ { "currentState":1 , "localRole":"World", "partner":"Me" , "label":"b" , "type":"send" , "nextState":4  } ,
+    { "currentState":1 , "localRole":"World", "partner":"Her" , "label":"c", "type":"send" , "nextState": 3 } ,
+    { "currentState":4 , "localRole":"World", "partner":"Her" , "label":"d", "type":"send" , "nextState":2  } ,
+    { "currentState":3 , "localRole":"World", "partner":"Me" , "label":"a", "type":"send" , "nextState":2 } ] """
+
+
 module typeProviderTest.Provider
 
 open FSharp.Core.CompilerServices
