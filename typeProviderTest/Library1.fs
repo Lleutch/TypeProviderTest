@@ -17,7 +17,7 @@ type ScribbleProtocole = FSharp.Data.JsonProvider<""" [ { "currentState":1 , "lo
 type ProviderTest(config : TypeProviderConfig) as this =
     inherit TypeProviderForNamespaces ()
     let ns = "typeProviderTest.Provided"
-    let asm = Assembly.GetExecutingAssembly()
+    let asm = Assembly.LoadFrom(config.RuntimeAssembly)
 
 
     let findCurrentIndex current (fsmInstance:ScribbleProtocole.Root []) = // gerer les cas
@@ -54,6 +54,22 @@ type ProviderTest(config : TypeProviderConfig) as this =
                         else
                             alreadySeen tl s
 
+    let findSameCurrent currentState  (fsmInstance:ScribbleProtocole.Root [])  =
+        let mutable list = []
+        let mutable inc = 0
+        for event in fsmInstance do
+            if event.CurrentState = currentState then
+                list <- inc::list
+            inc <- inc+1
+        list
+
+    // Change this function to make it more generic
+    let rec findProvidedType (list:'a list) stateValue =
+        match stateValue with
+        |1 -> list.Head
+        |k -> findProvidedType list.Tail (stateValue-1)
+
+
     let makeRoleTypes (fsmInstance:ScribbleProtocole.Root []) = 
         let mutable liste = [fsmInstance.[0].LocalRole]
         let mutable listeType = []
@@ -64,7 +80,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
                                                 GetterCode = (fun args -> Expr.NewObject(ctor,[]) ))
         t.AddMember(myProp)
         listeType <- t::listeType
-        let mutable mapping = Map.empty<_,System.Type>.Add(fsmInstance.[0].LocalRole,t)
+        let mutable mapping = Map.empty<_,ProvidedTypeDefinition>.Add(fsmInstance.[0].LocalRole,t)
         for event in fsmInstance do
             if not(alreadySeen liste event.Partner) then
                 let t = ProvidedTypeDefinition(event.Partner,Some typeof<obj>)
@@ -78,18 +94,60 @@ type ProviderTest(config : TypeProviderConfig) as this =
                 listeType <- t::listeType
         (mapping,listeType)
 
-    let makeLabelTypes (fsmInstance:ScribbleProtocole.Root []) = 
-        let mutable liste = []
+    let makeLabelTypes (fsmInstance:ScribbleProtocole.Root []) (providedList: ProvidedTypeDefinition list) = 
+        let mutable listeLabelSeen = []
         let mutable listeType = []
-        let mutable mapping = Map.empty<_,System.Type>
+        let mutable mapping = Map.empty<_,ProvidedTypeDefinition>
         for event in fsmInstance do
-            if not(alreadySeen liste event.Label) then
+            if (event.Type.Contains("choice") && not(alreadySeen listeLabelSeen event.Label)) then
+                let choiceType = ProvidedTypeDefinition("LabelChoice"+ string event.CurrentState, Some typeof<obj>)
+                let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
+                choiceType.AddMember(ctor)
+                let myMethod = ProvidedMethod("labelChoice" + string event.CurrentState ,[],typeof<unit>,InvokeCode = fun args -> <@@ () @@>) in
+                choiceType.AddMember(myMethod)
+                mapping <- mapping.Add("LabelChoice"+ string event.CurrentState,choiceType)
+                listeType <- choiceType::listeType  
+                let listIndexChoice = findSameCurrent event.CurrentState fsmInstance
+                let rec aux (liste:int list) =
+                    match liste with
+                        |[] -> ()
+                        |[aChoice] -> if not(alreadySeen listeLabelSeen fsmInstance.[aChoice].Label) then
+                                        let nextType = findProvidedType providedList fsmInstance.[aChoice].NextState
+                                        let c = nextType.GetConstructors().[0]
+                                        let expression = Expr.NewObject(c, [])  
+                                        let name = fsmInstance.[aChoice].Label.Replace("(","").Replace(")","") 
+                                        let t = ProvidedTypeDefinition(name, None, IsErased = false)
+                                        let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
+                                        t.AddMember(ctor)
+                                        let myMethod = ProvidedMethod("next",[],nextType,InvokeCode = fun args -> expression) in
+                                        t.AddMember(myMethod) 
+                                        t.SetBaseTypeDelayed(fun() -> choiceType.DeclaringType.GetNestedType("LabelChoice"+ string event.CurrentState))
+                                        mapping <- mapping.Add(fsmInstance.[aChoice].Label,t)
+                                        listeLabelSeen <- fsmInstance.[aChoice].Label::listeLabelSeen
+                                        listeType <- t::listeType     
+                        |hd::tl -> if not(alreadySeen listeLabelSeen fsmInstance.[hd].Label) then
+                                        let nextType = findProvidedType providedList fsmInstance.[hd].NextState
+                                        let c = nextType.GetConstructors().[0]
+                                        let expression = Expr.NewObject(c, [])  
+                                        let name = fsmInstance.[hd].Label.Replace("(","").Replace(")","") 
+                                        let t = ProvidedTypeDefinition(name, None, IsErased = false)
+                                        let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
+                                        t.AddMember(ctor)
+                                        let myMethod = ProvidedMethod("next",[],nextType,InvokeCode = fun args -> expression) in
+                                        t.AddMember(myMethod) 
+                                        t.SetBaseTypeDelayed(fun() -> choiceType.DeclaringType.GetNestedType("LabelChoice"+ string event.CurrentState))
+                                        mapping <- mapping.Add(fsmInstance.[hd].Label,t)
+                                        listeLabelSeen <- fsmInstance.[hd].Label::listeLabelSeen
+                                        listeType <- t::listeType  
+                                        aux tl 
+                in aux listIndexChoice 
+            else if not(alreadySeen listeLabelSeen event.Label) then
                 let name = event.Label.Replace("(","").Replace(")","") 
                 let t = ProvidedTypeDefinition(name,Some typeof<obj>)
                 let ctor = ProvidedConstructor([], InvokeCode = fun args -> <@@ "We'll see later" :> obj @@>) // add argument later
                 t.AddMember(ctor)
                 mapping <- mapping.Add(event.Label,t)
-                liste <- event.Label::liste
+                listeLabelSeen <- event.Label::listeLabelSeen
                 listeType <- t::listeType
         (mapping,listeType)
 
@@ -99,23 +157,9 @@ type ProviderTest(config : TypeProviderConfig) as this =
         t.AddMember(ctor)
         t
     let makeStateType (n:int) = makeStateType n "State"
-    
-    let findSameCurrent currentState  (fsmInstance:ScribbleProtocole.Root [])  =
-        let mutable list = []
-        let mutable inc = 0
-        for event in fsmInstance do
-            if event.CurrentState = currentState then
-                list <- inc::list
-            inc <- inc+1
-        list
-
-    let rec findProvidedType (list:'a list) stateValue =
-        match stateValue with
-        |1 -> list.Head
-        |k -> findProvidedType list.Tail (stateValue-1)
 
 
-    let rec goingThrough (methodName:string) (providedList:ProvidedTypeDefinition list) (aType:ProvidedTypeDefinition) (indexList:int list) (mLabel:Map<string,Type>) (mRole:Map<string,Type>) (fsmInstance:ScribbleProtocole.Root []) =
+    let rec goingThrough (methodName:string) (providedList:ProvidedTypeDefinition list) (aType:ProvidedTypeDefinition) (indexList:int list) (mLabel:Map<string,ProvidedTypeDefinition>) (mRole:Map<string,ProvidedTypeDefinition>) (fsmInstance:ScribbleProtocole.Root []) =
          match indexList with
          |[] -> // Last state: no next state possible
                 let myMethod = ProvidedMethod(methodName,[],typeof<unit>,InvokeCode = fun args -> <@@ printfn "finish" @@>) in
@@ -136,10 +180,11 @@ type ProviderTest(config : TypeProviderConfig) as this =
                     goingThrough methodName providedList aType tl mLabel mRole fsmInstance
 
 
-    let rec addProperty (providedListStatic:ProvidedTypeDefinition list) (providedList:ProvidedTypeDefinition list) (stateList: int list) (mLabel:Map<string,Type>) (mRole:Map<string,Type>) (fsmInstance:ScribbleProtocole.Root []) =
-        let indexOfState = findCurrentIndex stateList.Head fsmInstance
+    let rec addProperty (providedListStatic:ProvidedTypeDefinition list) (providedList:ProvidedTypeDefinition list) (stateList: int list) (mLabel:Map<string,ProvidedTypeDefinition>) (mRole:Map<string,ProvidedTypeDefinition>) (fsmInstance:ScribbleProtocole.Root []) =
+        let currentState = stateList.Head
+        let indexOfState = findCurrentIndex currentState fsmInstance
         //if (indexOfState <> -1) then // J'en ai plus besoin géré par method goingThrough
-        let indexList = findSameCurrent stateList.Head fsmInstance 
+        let indexList = findSameCurrent currentState fsmInstance 
         let mutable methodName = "finish"
         if indexOfState <> -1 then
             methodName <- fsmInstance.[indexOfState].Type
@@ -148,6 +193,11 @@ type ProviderTest(config : TypeProviderConfig) as this =
             |[aType] -> match methodName with
                             |"send" -> goingThrough methodName providedListStatic aType indexList mLabel mRole fsmInstance
                             |"receive" -> goingThrough methodName providedListStatic aType indexList mLabel mRole fsmInstance
+                            |"choice" -> let labelType = mLabel.["LabelChoice"+ string currentState]
+                                         let c = labelType.GetConstructors().[0]
+                                         let expression = Expr.NewObject(c,[])
+                                         let myMethod = ProvidedMethod("receive",[], labelType,InvokeCode = fun args -> expression )in
+                                         aType.AddMember(myMethod) 
                             |"finish" -> goingThrough methodName providedListStatic aType indexList mLabel mRole fsmInstance
                             | _ -> printfn "Not correct"
                         let myProp = ProvidedProperty("MyProperty", typeof<string>, IsStatic = true,
@@ -156,6 +206,11 @@ type ProviderTest(config : TypeProviderConfig) as this =
             |hd::tl ->  match methodName with
                             |"send" -> goingThrough methodName providedListStatic hd indexList mLabel mRole fsmInstance
                             |"receive" -> goingThrough methodName providedListStatic hd indexList mLabel mRole fsmInstance
+                            |"choice" -> let labelType = mLabel.["LabelChoice"+ string currentState]
+                                         let c = labelType.GetConstructors().[0]
+                                         let expression = Expr.NewObject(c,[]) 
+                                         let myMethod = ProvidedMethod("receive",[], labelType,InvokeCode = fun args -> expression )in
+                                         hd.AddMember(myMethod)
                             |"finish" -> goingThrough methodName providedListStatic hd indexList mLabel mRole fsmInstance
                             | _ -> printfn "Not correct"
                         let myProp = ProvidedProperty("MyProperty", typeof<string>, IsStatic = true,
@@ -165,7 +220,7 @@ type ProviderTest(config : TypeProviderConfig) as this =
 
     let contains (aSet:Set<'a>) x = Set.exists ((=) x) aSet
 
-    let numberOfState (fsmInstance:ScribbleProtocole.Root []) = 
+    let stateSet (fsmInstance:ScribbleProtocole.Root []) = 
         let mutable setSeen = Set.empty
         let mutable counter = 0
         for event in fsmInstance do
@@ -179,11 +234,11 @@ type ProviderTest(config : TypeProviderConfig) as this =
         let fsm = parameters.[0]  :?> string  (* this is used if we want to assure that the type of the parameter
 //we are grabbing is a string : DOWNCASTING . Which also means type verification at runtime and not compile time *)
         let protocol = ScribbleProtocole.Parse(fsm)
-        let couple = numberOfState protocol
+        let couple = stateSet protocol
         let n = fst(couple)
         let stateSet = snd(couple)
-        let listTypes = List.map (fun x -> makeStateType x ) (Set.toList stateSet)
-        let tupleLabel = makeLabelTypes protocol
+        let listTypes = (Set.toList stateSet) |> List.map (fun x -> makeStateType x )
+        let tupleLabel = makeLabelTypes protocol listTypes
         let tupleRole = makeRoleTypes protocol
         let list1 = snd(tupleLabel)
         let list2 = snd(tupleRole)
