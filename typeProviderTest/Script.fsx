@@ -11,21 +11,22 @@ open System.Reflection
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open System.IO
 
+// CACHING IN TYPE PROVIDER
+let sending = Option<Map<string,string*int>>.None
+let receiving = Option<string*int>.None
 
-(*type provid = Provided.RealProvider<""" 
-  [ { "currentState":1 , "localRole":"Me", "partner":"World" , "label":"toz()" , "type":"send" , "nextState": 3} ,
-    { "currentState":3 , "localRole":"Me", "partner":"Her" , "label":"e()", "type":"receive" , "nextState":2  } ] """ > *)
-
-type providedType = Provided.RealProvider<""" 
-  [ { "currentState":1 , "localRole":"Me", "partner":"World" , "label":"Hello()" , "type":"send" , "nextState": 4} ,
+//let truc = Some (Map.empty
+ //                   .Add("hey",("127.0.0.1",4243)))
+type providedType = Provided.RealProvider<Protocol=""" 
+    [ { "currentState":1 , "localRole":"Me", "partner":"World" , "label":"Hello()" , "type":"send" , "nextState": 4} ,
     { "currentState":4 , "localRole":"Me", "partner":"World" , "label":"goodMorning()" , "type":"choice" , "nextState": 3 } ,
     { "currentState":4 , "localRole":"Me", "partner":"World" , "label":"goodAfternoon()" , "type":"choice" , "nextState": 3 } ,
     { "currentState":4 , "localRole":"Me", "partner":"World" , "label":"goodNight()" , "type":"choice" , "nextState": 3 } ,
-    { "currentState":3 , "localRole":"Me", "partner":"World" , "label":"goodNight()" , "type":"receive" , "nextState": 2 } ] """ >
+    { "currentState":3 , "localRole":"Me", "partner":"World" , "label":"Bye()" , "type":"send" , "nextState": 2 } ] """,Local=true,Senders = sending,Receiver = None>
 
 
 let providedInstance = new providedType()
-let s = providedType.
+//let s = providedType.
 let c = providedInstance.instanciate().send(new providedType.Hello(),providedType.World.instance).receive()
 
 type g1 = providedType.goodAfternoon
@@ -36,10 +37,9 @@ match c with
                g.next()    
     | :? g2 -> let g = new g2()
                g.next()    
-    | :? int -> let g = new g3()
-                g.next()
+    | :? g3 -> let g = new g3()
+               g.next()
 
-let inbox = MailboxProcessor.
 
 
 
@@ -47,7 +47,7 @@ let inbox = MailboxProcessor.
 
 
 //let b = v.instanciate().send(new e.b(), e.Her.instance)
-
+        
 (*type a1 = provid.a
 type b1 = provid.b
 type c1 = provid.c
